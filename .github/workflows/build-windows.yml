@@ -1,0 +1,102 @@
+name: Compilar EXE para Windows
+
+on:
+  push:
+    branches: [ main, master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+      - name: Obtener codigo
+        uses: actions/checkout@v4
+
+      - name: Instalar Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Instalar dependencias
+        run: |
+          python -m pip install --upgrade pip
+          pip install flask pandas openpyxl reportlab pyinstaller
+
+      - name: Compilar ejecutable
+        shell: cmd
+        run: |
+          pyinstaller ^
+            --onefile ^
+            --console ^
+            --name "ListaElegiblesICBF" ^
+            --collect-all flask ^
+            --collect-all jinja2 ^
+            --collect-all werkzeug ^
+            --collect-all click ^
+            --collect-all pandas ^
+            --collect-all openpyxl ^
+            --collect-all numpy ^
+            --collect-all reportlab ^
+            --hidden-import=openpyxl.cell._writer ^
+            --hidden-import=openpyxl.styles.stylesheet ^
+            --hidden-import=openpyxl.drawing.spreadsheet_drawing ^
+            --hidden-import=openpyxl.chart ^
+            --hidden-import=reportlab.graphics ^
+            --hidden-import=reportlab.platypus ^
+            --hidden-import=reportlab.lib.pagesizes ^
+            --hidden-import=reportlab.lib.styles ^
+            --hidden-import=reportlab.lib.units ^
+            --hidden-import=reportlab.lib.enums ^
+            --hidden-import=hashlib ^
+            --hidden-import=uuid ^
+            --hidden-import=socket ^
+            --hidden-import=threading ^
+            --hidden-import=io ^
+            --hidden-import=zipfile ^
+            --hidden-import=tempfile ^
+            --hidden-import=webbrowser ^
+            --hidden-import=multiprocessing.freeze_support ^
+            --noconfirm ^
+            app.py
+
+      - name: Guardar EXE como artefacto
+        uses: actions/upload-artifact@v4
+        with:
+          name: ListaElegiblesICBF-Windows
+          path: dist/ListaElegiblesICBF.exe
+          retention-days: 90
+
+      - name: Crear Release con el EXE
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v${{ github.run_number }}
+          name: "Lista Elegibles ICBF v${{ github.run_number }}"
+          body: |
+            ## Lista de Elegibles ICBF - Proceso de Encargos
+            Aplicacion standalone para Windows (sin necesidad de instalar Python).
+
+            ### Como usar:
+            1. Descarga ListaElegiblesICBF.exe (abajo en Assets)
+            2. Si Windows muestra alerta azul: "Mas informacion" -> "Ejecutar de todas formas"
+            3. Se abre el navegador automaticamente en http://127.0.0.1:5000
+            4. Carga tu Excel y genera la lista
+
+            ### Criterios Art. 7 aplicados:
+            i. Tipo evaluacion (DEFINITIVA primero, EN PRUEBA al final)
+            ii. Mayor grado cargo actual
+            iii. Titular del empleo a proveer
+            iv. Mayor puntaje EDL
+            v. Mayor antiguedad (fecha exacta dd/mm/aaaa)
+            vi. Misma dependencia/regional
+            vii. Situacion discapacidad
+            viii. Certificado voto electoral
+            ix. Sorteo deterministico por cedula
+
+            ### Normativa:
+            Memorando Rad. No. 20251214000008763 del 16/Jul/2025 - Art. 7
+          files: dist/ListaElegiblesICBF.exe
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
